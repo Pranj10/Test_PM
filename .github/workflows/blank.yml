@@ -3,65 +3,26 @@ name: Trigger Checkmarx DAST Scan
 on:
   pull_request:
     branches:
-      - main  # Trigger the workflow when a pull request is made to the 'main' branch
+      - main  # Trigger on pull request to 'main' branch
 
 jobs:
   dast-scan:
     runs-on: ubuntu-latest  # Use the latest version of Ubuntu for the runner
 
     steps:
-    # Step 1: Checkout repository code
+    # Step 1: Checkout the repository code
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    # Step 2: Trigger the Checkmarx DAST scan
-    - name: Trigger Checkmarx DAST scan on testfire.net
-      id: dast_scan
-      run: |
-        echo "Triggering Checkmarx DAST scan on http://testfire.net"
-        response=$(curl -X POST \
-          "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans" \
-          -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}" \
-          -H "X-API-Key-ID: ${{ secrets.CHECKMARX_API_KEY_ID }}" \
-          -d '{"url": "http://testfire.net"}')
-        echo "Scan triggered with response: $response"
-        echo "response=$response" >> $GITHUB_ENV
-
-    # Step 3: Wait for scan to complete
-    - name: Wait for scan completion
-      id: wait_for_scan
-      run: |
-        echo "Waiting for scan to complete..."
-        scan_id=$(echo ${{ env.response }} | jq -r '.scan_id')  # Extract scan_id from the response
-        scan_status="IN_PROGRESS"
-        while [[ "$scan_status" == "IN_PROGRESS" ]]; do
-          echo "Checking scan status for scan_id: $scan_id"
-          status_response=$(curl -X GET \
-            "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans/$scan_id/status" \
-            -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}" \
-            -H "X-API-Key-ID: ${{ secrets.CHECKMARX_API_KEY_ID }}")
-          scan_status=$(echo $status_response | jq -r '.status')
-          echo "Current scan status: $scan_status"
-          sleep 30  # Check every 30 seconds
-        done
-
-    # Step 4: Output scan results
-    - name: Output scan results
-      run: |
-        echo "Scan completed. Fetching scan results..."
-        scan_results=$(curl -X GET \
-          "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans/$scan_id/results" \
-          -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}" \
-          -H "X-API-Key-ID: ${{ secrets.CHECKMARX_API_KEY_ID }}")
-        echo "Scan results: $scan_results"
-        echo "::set-output name=scan_results::$scan_results"
-
-    # Step 5: Handle the scan results (optional)
-    - name: Handle scan results
-      run: |
-        if [[ "${{ steps.output_scan_results.outputs.scan_results }}" == *"Critical"* ]]; then
-          echo "Critical issues found in the scan, please review!"
-          exit 1  # Fail the workflow if critical issues are found
-        else
-          echo "No critical issues found. The scan is successful."
-        fi
+    # Step 2: Trigger Checkmarx DAST scan using Checkmarx DAST GitHub Action
+    - name: Checkmarx DAST GitHub Action
+      uses: Checkmarx/dast-github-action@v2.3.0  # Using the latest version of the Checkmarx DAST GitHub Action
+      with:
+        command: web  # Perform a web scan
+        base_url: ${{ secrets.CHECKMARX_API_URL }}  # URL for the Checkmarx instance (stored in secrets)
+        environment_id: ${{ secrets.CHECKMARX_ENVIRONMENT_ID }}  # Your DAST Environment ID from GitHub secrets
+        environment_name: ${{ secrets.CHECKMARX_ENVIRONMENT_NAME }}  # Your DAST Environment Name from GitHub secrets
+        output: ./checkmarx_output  # Path to save output, can be customized
+        verbose: true  # Optional: Enable detailed logs
+        fail_on: Critical  # Fail the workflow if Critical vulnerabilities are found
+        url: http://testfire.net  # The URL to scan (provided in the question)
