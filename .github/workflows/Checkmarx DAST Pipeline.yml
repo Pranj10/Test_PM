@@ -27,16 +27,16 @@ jobs:
       - name: Checkmarx DAST Scan
         uses: Checkmarx/dast-github-action@v2.3.0
         env:
-          CX_APIKEY: ${{ secrets.CX_APIKEY }}
+          CX_APIKEY: ${{ secrets.APIKEY }}
         with:
           # The type of scan to perform (web, api)
           command: web
           # The path to the ZAP configuration file
-          config: ./gin_juice.yaml
+          config: ./Config_q7_dast_api_ee38c1e1-1203-4298-bace-174ffc163f10.yaml
           # The base URL for the Checkmarx One Servers
           base_url: https://eu.ast.checkmarx.net/
           # The environment ID previously created in the Frontend
-          environment_id: bd462e37-c712-440a-9e0c-7984b09d5252
+          environment_id: ee38c1e1-1203-4298-bace-174ffc163f10
           output: ${{ github.workspace }}/output_fold #./output
  
       - name: Reclaim Output Directory
