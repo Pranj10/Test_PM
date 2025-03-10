@@ -1,28 +1,51 @@
-name: Trigger Checkmarx DAST Scan
-
-on:
-  pull_request:
-    branches:
-      - main  # Trigger on pull request to 'main' branch
-
+name: Checkmarx DAST Pipeline
+ 
+on: 
+  # No trigger here, this pipeline will not run automatically.
+  # You can add a manual trigger like the following if needed:
+   workflow_dispatch:
+ 
 jobs:
-  dast-scan:
-    runs-on: ubuntu-latest  # Use the latest version of Ubuntu for the runner
-
+  checkmarx-dast:
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+ 
+    runs-on: ubuntu-latest
+ 
     steps:
-    # Step 1: Checkout the repository code
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    # Step 2: Trigger Checkmarx DAST scan using Checkmarx DAST GitHub Action
-    - name: Checkmarx DAST GitHub Action
-      uses: Checkmarx/dast-github-action@v2.3.0  # Using the latest version of the Checkmarx DAST GitHub Action
-      with:
-        command: web  # Perform a web scan
-        base_url: ${{ secrets.CHECKMARX_API_URL }}  # URL for the Checkmarx instance (stored in secrets)
-        environment_id: ${{ secrets.CHECKMARX_ENVIRONMENT_ID }}  # Your DAST Environment ID from GitHub secrets
-        environment_name: ${{ secrets.CHECKMARX_ENVIRONMENT_NAME }}  # Your DAST Environment Name from GitHub secrets
-        output: ./checkmarx_output  # Path to save output, can be customized
-        verbose: true  # Optional: Enable detailed logs
-        fail_on: Critical  # Fail the workflow if Critical vulnerabilities are found
-        url: http://testfire.net  # The URL to scan (provided in the question)
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+ 
+      - name: Create Directory for Output
+        run: mkdir ${{ github.workspace }}/output_fold
+ 
+      - name: Change Directory Owner
+        run: sudo chown -R 1000:1000 ${{ github.workspace }}
+ 
+      - name: Checkmarx DAST Scan
+        uses: Checkmarx/dast-github-action@v2.3.0
+        env:
+          CX_APIKEY: ${{ secrets.CX_APIKEY }}
+        with:
+          # The type of scan to perform (web, api)
+          command: web
+          # The path to the ZAP configuration file
+          config: ./gin_juice.yaml
+          # The base URL for the Checkmarx One Servers
+          base_url: https://ind.ast.checkmarx.net
+          # The environment ID previously created in the Frontend
+          environment_id: bd462e37-c712-440a-9e0c-7984b09d5252
+          output: ${{ github.workspace }}/output_fold #./output
+ 
+      - name: Reclaim Output Directory
+        if: always()
+        run: sudo chown -R 1001:1001 ${{ github.workspace }}/output_fold
+ 
+      - name: Upload DAST Logs
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dast-report
+          path: ${{ github.workspace }}/output_fold
