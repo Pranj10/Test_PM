@@ -1,0 +1,54 @@
+name: Trigger Checkmarx DAST Scan
+
+on:
+  pull_request:
+    branches:
+      - main  
+
+jobs:
+  dast-scan:
+    runs-on: ubuntu-latest  
+
+    steps:
+  
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    # Step 2: Trigger the Checkmarx DAST scan
+    - name: Trigger Checkmarx DAST scan on testfire.net
+      id: dast_scan
+      run: |
+        echo "Triggering Checkmarx DAST scan on http://testfire.net"
+        response=$(curl -X POST \
+          "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans" \
+          -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}" \
+          -d '{"url": "http://testfire.net"}')
+        echo "Scan triggered with response: $response"
+        echo "response=$response" >> $GITHUB_ENV
+
+    # Step 3: Wait for scan to complete
+    - name: Wait for scan completion
+      id: wait_for_scan
+      run: |
+        echo "Waiting for scan to complete..."
+        scan_id=$(echo ${{ env.response }} | jq -r '.scan_id')  # Extract scan_id from the response
+        scan_status="IN_PROGRESS"
+        while [[ "$scan_status" == "IN_PROGRESS" ]]; do
+          echo "Checking scan status for scan_id: $scan_id"
+          status_response=$(curl -X GET \
+            "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans/$scan_id/status" \
+            -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}")
+          scan_status=$(echo $status_response | jq -r '.status')
+          echo "Current scan status: $scan_status"
+          sleep 30  # Check every 30 seconds
+        done
+
+    # Step 4: Output scan results
+    - name: Output scan results
+      run: |
+        echo "Scan completed. Fetching scan results..."
+        scan_results=$(curl -X GET \
+          "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans/$scan_id/results" \
+          -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}")
+        echo "Scan results: $scan_results"
+        echo "::set-output name=scan_results::$scan_results"
