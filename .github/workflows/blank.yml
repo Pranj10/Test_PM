@@ -34,7 +34,7 @@ jobs:
           # The path to the ZAP configuration file
           config: ./gin_juice.yaml
           # The base URL for the Checkmarx One Servers
-          base_url: https://ind.ast.checkmarx.net
+          base_url: https://eu.ast.checkmarx.net/
           # The environment ID previously created in the Frontend
           environment_id: bd462e37-c712-440a-9e0c-7984b09d5252
           output: ${{ github.workspace }}/output_fold #./output
