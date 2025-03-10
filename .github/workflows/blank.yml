@@ -3,14 +3,14 @@ name: Trigger Checkmarx DAST Scan
 on:
   pull_request:
     branches:
-      - main  
+      - main  # Trigger the workflow when a pull request is made to the 'main' branch
 
 jobs:
   dast-scan:
-    runs-on: ubuntu-latest  
+    runs-on: ubuntu-latest  # Use the latest version of Ubuntu for the runner
 
     steps:
-  
+    # Step 1: Checkout repository code
     - name: Checkout repository
       uses: actions/checkout@v2
 
@@ -22,6 +22,7 @@ jobs:
         response=$(curl -X POST \
           "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans" \
           -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}" \
+          -H "X-API-Key-ID: ${{ secrets.CHECKMARX_API_KEY_ID }}" \
           -d '{"url": "http://testfire.net"}')
         echo "Scan triggered with response: $response"
         echo "response=$response" >> $GITHUB_ENV
@@ -37,7 +38,8 @@ jobs:
           echo "Checking scan status for scan_id: $scan_id"
           status_response=$(curl -X GET \
             "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans/$scan_id/status" \
-            -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}")
+            -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}" \
+            -H "X-API-Key-ID: ${{ secrets.CHECKMARX_API_KEY_ID }}")
           scan_status=$(echo $status_response | jq -r '.status')
           echo "Current scan status: $scan_status"
           sleep 30  # Check every 30 seconds
@@ -49,6 +51,17 @@ jobs:
         echo "Scan completed. Fetching scan results..."
         scan_results=$(curl -X GET \
           "${{ secrets.CHECKMARX_API_URL }}/api/dast/scans/$scan_id/results" \
-          -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}")
+          -H "Authorization: Bearer ${{ secrets.CHECKMARX_API_KEY }}" \
+          -H "X-API-Key-ID: ${{ secrets.CHECKMARX_API_KEY_ID }}")
         echo "Scan results: $scan_results"
         echo "::set-output name=scan_results::$scan_results"
+
+    # Step 5: Handle the scan results (optional)
+    - name: Handle scan results
+      run: |
+        if [[ "${{ steps.output_scan_results.outputs.scan_results }}" == *"Critical"* ]]; then
+          echo "Critical issues found in the scan, please review!"
+          exit 1  # Fail the workflow if critical issues are found
+        else
+          echo "No critical issues found. The scan is successful."
+        fi
